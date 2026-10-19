@@ -69,6 +69,10 @@ services:
     networks:
       - db_net
     logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
 
   # ---------------------------------------------------------------------------
   # pgAdmin 4 - công cụ quản trị PostgreSQL (chỉ mở trên 127.0.0.1:5050)
@@ -94,6 +98,8 @@ services:
       - db_net
       - admin_net
     logging: *default-logging
+    mem_limit: 512m
+    pids_limit: 300
 
   # ---------------------------------------------------------------------------
   # Ứng dụng web Node.js/Express (chạy user 'node', kết nối DB bằng role tối thiểu)
@@ -128,6 +134,15 @@ services:
       - db_net
       - monitor_net
     logging: *default-logging
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 100
 
   # ---------------------------------------------------------------------------
   # Nginx reverse proxy (nginx-unprivileged: chạy non-root) - điểm vào duy nhất của website
@@ -159,6 +174,15 @@ services:
       - app_net
       - monitor_net
     logging: *default-logging
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 100
 
   # ---------------------------------------------------------------------------
   # Exporter: chuyển số liệu Nginx (stub_status) sang định dạng Prometheus
@@ -175,6 +199,13 @@ services:
     networks:
       - monitor_net
     logging: *default-logging
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 64m
+    pids_limit: 50
 
   # ---------------------------------------------------------------------------
   # Exporter: số liệu PostgreSQL, kết nối bằng role chỉ-đọc 'exporter' (pg_monitor)
@@ -194,6 +225,13 @@ services:
       - db_net
       - monitor_net
     logging: *default-logging
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    pids_limit: 50
 
   # ---------------------------------------------------------------------------
   # cAdvisor: số liệu CPU/RAM/mạng/đĩa của từng container
@@ -213,6 +251,8 @@ services:
     networks:
       - monitor_net
     logging: *default-logging
+    mem_limit: 256m
+    pids_limit: 200
 
   # ---------------------------------------------------------------------------
   # Prometheus: thu thập & lưu số liệu (UI: http://127.0.0.1:9090)
@@ -235,6 +275,12 @@ services:
       - monitor_net
       - admin_net
     logging: *default-logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 100
 
   # ---------------------------------------------------------------------------
   # Grafana: dashboard (UI: http://127.0.0.1:3000) - datasource & dashboard được provision sẵn
@@ -264,6 +310,10 @@ services:
       - monitor_net
       - admin_net
     logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
 
   # ---------------------------------------------------------------------------
   # Loki: kho log tập trung (chỉ trong monitor_net, truy vấn qua Grafana)
@@ -280,6 +330,12 @@ services:
     networks:
       - monitor_net
     logging: *default-logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
 
   # ---------------------------------------------------------------------------
   # Promtail: thu log của mọi container trong project 'library' qua Docker API, đẩy sang Loki
@@ -300,6 +356,8 @@ services:
     networks:
       - monitor_net
     logging: *default-logging
+    mem_limit: 256m
+    pids_limit: 100
 
 # -----------------------------------------------------------------------------
 # Network isolation

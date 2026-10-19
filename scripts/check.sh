@@ -43,6 +43,14 @@ expect "Datasource Prometheus" "$(curl -s -u "${GRAFANA_ADMIN_USER:-admin}:${GRA
 echo "== Loki / Promtail =="
 expect "Datasource Loki" "$(curl -s -u "${GRAFANA_ADMIN_USER:-admin}:${GRAFANA_ADMIN_PASSWORD}" http://127.0.0.1:3000/api/datasources/uid/loki/health | grep -o '"status":"OK"' | head -1)" '"status":"OK"'
 
+echo "== Hardening =="
+expect "app chạy non-root (uid)" "$(docker compose exec -T app id -u | tr -d '\r')" "1000"
+expect "nginx chạy non-root (uid)" "$(docker compose exec -T nginx id -u | tr -d '\r')" "101"
+expect "db_net là internal" "$(docker network inspect library_db_net --format '{{.Internal}}')" "true"
+expect "PostgreSQL không publish cổng" "$(docker compose port postgres 5432 2>/dev/null | wc -l | tr -d ' ')" "0"
+CODES=""; for i in $(seq 1 12); do CODES="$CODES $(curl -sk -o /dev/null -w '%{http_code}' "$HTTPS/login")"; done
+echo "$CODES" | grep -q 429 && ok "Rate limit /login kích hoạt (mã:$CODES)" || fail "Rate limit /login chưa kích hoạt (mã:$CODES)"
+
 echo
 [ "$FAILED" = "0" ] && echo "TẤT CẢ KIỂM TRA ĐẠT" || echo "CÓ KIỂM TRA KHÔNG ĐẠT - xem các dòng [FAIL]"
 exit "$FAILED"

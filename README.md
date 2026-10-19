@@ -117,6 +117,7 @@ Các giao diện quản trị chỉ lắng nghe trên `127.0.0.1` (xem biến `A
 │   ├── loki/loki-config.yml
 │   └── promtail/promtail-config.yml
 ├── scripts/                    # setup.sh, setup.ps1, check.sh
+└── docs/                       # HARDENING.md, LOGQL.md, SCREENSHOTS.md, NOP_BAI.md
 ```
 
 ## 7. Nginx reverse proxy (Yêu cầu 3)
@@ -161,6 +162,23 @@ Quy tắc cảnh báo mẫu xem tại Prometheus -> Alerts (`monitoring/promethe
 
 Giải thích chi tiết và cách tạo dữ liệu mẫu cho từng truy vấn: [`docs/LOGQL.md`](docs/LOGQL.md).
 
+## 10. Hardening (Yêu cầu 6)
+
+| Nhóm | Biện pháp |
+|---|---|
+| Non-root | app (`node`, UID 1000), Nginx (`nginx-unprivileged`, UID 101), PostgreSQL (`postgres`), pgAdmin, Grafana, Prometheus, Loki đều không chạy bằng root |
+| Network isolation | 5 mạng riêng; `app_net`, `db_net`, `monitor_net` là `internal` (không ra Internet); PostgreSQL/Loki/exporter không publish cổng |
+| Mật khẩu mạnh | `setup.sh` sinh mật khẩu ngẫu nhiên; app **từ chối khởi động** nếu `ADMIN_PASSWORD` < 12 ký tự hoặc `SESSION_SECRET` < 32 ký tự; PostgreSQL dùng `scram-sha-256` |
+| Hạn chế quyền DB | Role `library_app` không phải superuser, không `DROP/ALTER`, không `DELETE` bảng `loans`; role `exporter` chỉ có `pg_monitor`; `statement_timeout`, giới hạn kết nối |
+| Security headers Nginx | HSTS, CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy; chỉ cho phép GET/HEAD/POST; chặn `/metrics` ra ngoài |
+| Chống tấn công ứng dụng | CSRF token, cookie `HttpOnly; Secure; SameSite=Lax`, tái tạo session khi đăng nhập, escape HTML mặc định, truy vấn tham số hóa |
+| Giới hạn tốc độ | `limit_req` trên `/login` (10 lần/phút) và toàn site (20 req/s), `limit_conn` |
+| Container | `read_only` rootfs (app, Nginx, exporter), `cap_drop: ALL` (app, Nginx, exporter, Prometheus, Loki), `no-new-privileges`, giới hạn RAM/PID cho mọi dịch vụ, xoay vòng log Docker |
+| Bí mật | `.env` nằm trong `.gitignore`; không có mật khẩu trong mã nguồn hay SQL |
+| Giao diện quản trị | pgAdmin/Grafana/Prometheus chỉ mở trên `127.0.0.1` |
+
+Cách kiểm chứng từng biện pháp bằng lệnh: [`docs/HARDENING.md`](docs/HARDENING.md).
+
 ## 11. Lịch sử commit
 
 | Commit | Nội dung |
@@ -168,6 +186,7 @@ Giải thích chi tiết và cách tạo dữ liệu mẫu cho từng truy vấn
 | 1 | Ứng dụng + PostgreSQL + pgAdmin + Nginx reverse proxy (HTTPS, security headers) |
 | 2 | Prometheus + Grafana + exporter + dashboard |
 | 3 | Loki + Promtail + dashboard log + truy vấn LogQL |
+| 4 | Hardening (read-only, cap_drop, giới hạn tài nguyên, rate limit) + tài liệu |
 
 ## 12. Xử lý sự cố
 
