@@ -1,0 +1,181 @@
+# =============================================================================
+# Hệ thống Quản lý Thư viện - Docker Compose
+# Chạy:   cp .env.example .env  (hoặc ./scripts/setup.sh)  ->  docker compose up -d --build
+# =============================================================================
+name: library
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Sinh chứng chỉ TLS tự ký (chạy 1 lần rồi thoát, không cần mạng)
+  # ---------------------------------------------------------------------------
+  certgen:
+    build: ./nginx/certgen
+    image: library-certgen:1.0
+    container_name: library-certgen
+    network_mode: none
+    environment:
+      CERT_CN: ${SERVER_NAME:-localhost}
+    volumes:
+      - nginx_certs:/certs
+    restart: "no"
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 (không publish cổng ra host; chỉ nằm trong db_net)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: library-postgres
+    restart: unless-stopped
+    user: postgres
+    environment:
+      POSTGRES_DB: library
+      POSTGRES_USER: library_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Hãy đặt POSTGRES_PASSWORD trong file .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Hãy đặt APP_DB_PASSWORD trong file .env}
+      TZ: Asia/Ho_Chi_Minh
+    command:
+      - postgres
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - timezone=Asia/Ho_Chi_Minh
+      - -c
+      - log_timezone=Asia/Ho_Chi_Minh
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_statement=ddl
+      - -c
+      - log_min_duration_statement=500
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - db_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin 4 - công cụ quản trị PostgreSQL (chỉ mở trên 127.0.0.1:5050)
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:8.12
+    container_name: library-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?Hãy đặt PGADMIN_PASSWORD trong file .env}
+      PGADMIN_LISTEN_PORT: "5050"
+      PGADMIN_CONFIG_CONSOLE_LOG_LEVEL: "30"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./db/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "${ADMIN_BIND:-127.0.0.1}:5050:5050"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - db_net
+      - admin_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Ứng dụng web Node.js/Express (chạy user 'node', kết nối DB bằng role tối thiểu)
+  # ---------------------------------------------------------------------------
+  app:
+    build: ./app
+    image: library-app:1.0
+    container_name: library-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: library
+      DB_USER: library_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:?Hãy đặt APP_DB_PASSWORD trong file .env}
+      SESSION_SECRET: ${SESSION_SECRET:?Hãy đặt SESSION_SECRET (>=32 ký tự) trong file .env}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Hãy đặt ADMIN_PASSWORD (>=12 ký tự) trong file .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app_net
+      - db_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Nginx reverse proxy (nginx-unprivileged: chạy non-root) - điểm vào duy nhất của website
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    container_name: library-nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:8080"
+      - "${HTTPS_PORT:-443}:8443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - nginx_certs:/etc/nginx/certs:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      certgen:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8080/nginx-health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - edge_net
+      - app_net
+    logging: *default-logging
+
+
+
+# -----------------------------------------------------------------------------
+# Network isolation
+#   edge_net    : Internet <-> Nginx (mạng duy nhất publish cổng 80/443)
+#   app_net     : Nginx <-> App            (internal: không ra Internet)
+#   db_net      : App/pgAdmin/exporter <-> PostgreSQL (internal)
+#   admin_net   : chỉ để publish UI quản trị (pgAdmin/Grafana/Prometheus) lên 127.0.0.1
+#   monitor_net : giám sát & log (internal)
+# -----------------------------------------------------------------------------
+networks:
+  edge_net:
+  app_net:
+    internal: true
+  db_net:
+    internal: true
+  admin_net:
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+  nginx_certs:

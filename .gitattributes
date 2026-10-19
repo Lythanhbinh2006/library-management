@@ -1,0 +1,4 @@
+# Luôn dùng LF để script/cấu hình chạy được trong container Linux (kể cả khi clone trên Windows)
+* text=auto eol=lf
+*.sh text eol=lf
+*.ps1 text eol=lf

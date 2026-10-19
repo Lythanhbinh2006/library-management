@@ -1,0 +1,8 @@
+# Bí mật & dữ liệu cục bộ – KHÔNG commit
+.env
+*.key
+*.pem
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
