@@ -1,0 +1,65 @@
+# Quy tắc cảnh báo (hiển thị tại Prometheus > Alerts). Chưa gắn Alertmanager vì phạm vi bài thực hành.
+groups:
+  - name: library-availability
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dịch vụ {{ $labels.job }} ({{ $labels.instance }}) ngừng phản hồi"
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL không truy cập được"
+
+  - name: library-web
+    rules:
+      - alert: HighHttp5xxRate
+        expr: sum(rate(library_http_requests_total{status=~"5.."}[5m])) / sum(rate(library_http_requests_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Tỷ lệ lỗi HTTP 5xx của ứng dụng vượt 5%"
+
+      - alert: SlowRequests
+        expr: histogram_quantile(0.95, sum by (le) (rate(library_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 độ trễ request vượt 1 giây"
+
+  - name: library-resources
+    rules:
+      - alert: ContainerHighMemory
+        expr: container_memory_working_set_bytes{name=~"library-.+"} > 450 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} dùng hơn 450 MiB RAM"
+
+      - alert: PostgresTooManyConnections
+        expr: sum(pg_stat_database_numbackends{datname="library"}) > 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Số kết nối tới CSDL library cao bất thường"
+
+  - name: library-business
+    rules:
+      - alert: ManyOverdueLoans
+        expr: library_loans_overdue > 10
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Có hơn 10 phiếu mượn quá hạn"

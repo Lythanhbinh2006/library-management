@@ -1,0 +1,35 @@
+# Prometheus - cấu hình thu thập số liệu (scrape) mỗi 15 giây
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    system: library
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Ứng dụng Node.js: HTTP request, độ trễ, số liệu nghiệp vụ (sách, độc giả, phiếu mượn)
+  - job_name: app
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["app:3000"]
+
+  # Web server: Nginx qua nginx-prometheus-exporter (stub_status)
+  - job_name: nginx
+    static_configs:
+      - targets: ["nginx-exporter:9113"]
+
+  # Database: PostgreSQL qua postgres-exporter
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # Container: CPU/RAM/mạng/đĩa qua cAdvisor
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]

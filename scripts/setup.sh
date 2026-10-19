@@ -28,10 +28,14 @@ SERVER_NAME=localhost
 HTTP_PORT=80
 HTTPS_PORT=443
 ADMIN_BIND=127.0.0.1
+EXPORTER_DB_PASSWORD=$(hex 24)
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=${GRAFANA_PW}
 ENVEOF
 chmod 600 .env
 
 echo "[setup] Đã tạo .env (quyền 600). Tài khoản đăng nhập:"
 echo "  Website  : admin / ${ADMIN_PW}"
 echo "  pgAdmin  : admin@example.com / ${PGADMIN_PW}"
+echo "  Grafana  : admin / ${GRAFANA_PW}"
 echo "Tiếp theo: docker compose up -d --build"

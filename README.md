@@ -47,6 +47,10 @@ giám sát bằng **Prometheus + Grafana**, log tập trung bằng **Loki + Prom
 | App | Build từ `app/` (`node:22-alpine`) | Ứng dụng Express, log JSON, endpoint `/metrics` |
 | PostgreSQL | `postgres:16-alpine` | CSDL, role tối thiểu, log truy vấn chậm |
 | pgAdmin | `dpage/pgadmin4:8.12` | Quản trị CSDL bằng giao diện web |
+| Prometheus | `prom/prometheus:v2.55.1` | Thu thập số liệu, quy tắc cảnh báo |
+| Grafana | `grafana/grafana:11.3.0` | Dashboard (provision sẵn) |
+| cAdvisor | `gcr.io/cadvisor/cadvisor:v0.49.1` | Số liệu container |
+| nginx-exporter / postgres-exporter | `nginx/nginx-prometheus-exporter:1.3.0` / `prometheuscommunity/postgres-exporter:v0.15.0` | Số liệu web server / database |
 
 ## 3. Yêu cầu
 
@@ -82,6 +86,8 @@ Trình duyệt sẽ cảnh báo "không an toàn" do chứng chỉ tự ký: ch�
 |---|---|---|
 | Website thư viện | https://localhost | `ADMIN_USERNAME` / `ADMIN_PASSWORD` trong `.env` |
 | pgAdmin | http://127.0.0.1:5050 | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` |
+| Grafana | http://127.0.0.1:3000 | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` |
+| Prometheus | http://127.0.0.1:9090 | không cần đăng nhập (chỉ loopback) |
 
 Các giao diện quản trị chỉ lắng nghe trên `127.0.0.1` (xem biến `ADMIN_BIND`). Nếu chạy Docker trong máy ảo, dùng SSH tunnel
 (`ssh -L 5050:127.0.0.1:5050 -L 3000:127.0.0.1:3000 user@vm`) hoặc đặt `ADMIN_BIND=0.0.0.0` trong `.env` rồi `docker compose up -d`.
@@ -103,6 +109,9 @@ Các giao diện quản trị chỉ lắng nghe trên `127.0.0.1` (xem biến `A
 │   ├── nginx.conf              # reverse proxy, TLS, log JSON
 │   ├── snippets/               # security-headers.conf, proxy.conf
 │   └── certgen/                # container sinh chứng chỉ tự ký
+├── monitoring/
+│   ├── prometheus/             # prometheus.yml, alerts.yml
+│   └── grafana/                # provisioning/ + dashboards/*.json
 ├── scripts/                    # setup.sh, setup.ps1, check.sh
 ```
 
@@ -114,11 +123,28 @@ Các giao diện quản trị chỉ lắng nghe trên `127.0.0.1` (xem biến `A
   `Content-Security-Policy`, `Cross-Origin-*`. Ẩn phiên bản Nginx (`server_tokens off`).
 - Kiểm tra: `curl -skI https://localhost/login` và `curl -sI http://localhost/`.
 
+## 8. Giám sát: Prometheus + Grafana (Yêu cầu 4)
+
+Prometheus thu thập (mỗi 15 giây) từ 5 nhóm target: `app`, `nginx` (qua exporter), `postgres` (qua exporter), `cadvisor` (container) và chính nó.
+Kiểm tra tại http://127.0.0.1:9090/targets - tất cả phải **UP**.
+
+Grafana tự nạp datasource và 3 dashboard trong thư mục **Library**:
+
+| Dashboard | Nội dung |
+|---|---|
+| Library - Containers (cAdvisor) | CPU, RAM, mạng, đĩa, uptime của từng container |
+| Library - Web (Nginx + App) | Request/s, kết nối, mã HTTP, độ trễ p50/p95/p99, số liệu nghiệp vụ (sách, độc giả, phiếu mượn) |
+| Library - PostgreSQL | Kết nối, transaction/s, cache hit ratio, khóa, dung lượng DB, số dòng theo bảng |
+
+Quy tắc cảnh báo mẫu xem tại Prometheus -> Alerts (`monitoring/prometheus/alerts.yml`).
+Để thấy biểu đồ chuyển động: đăng nhập website, thêm sách, lập/nhận trả phiếu, hoặc chạy vòng lặp `curl -sk https://localhost/login`.
+
 ## 11. Lịch sử commit
 
 | Commit | Nội dung |
 |---|---|
 | 1 | Ứng dụng + PostgreSQL + pgAdmin + Nginx reverse proxy (HTTPS, security headers) |
+| 2 | Prometheus + Grafana + exporter + dashboard |
 
 ## 12. Xử lý sự cố
 

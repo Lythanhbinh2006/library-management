@@ -32,6 +32,9 @@ $lines = @(
     "HTTP_PORT=80",
     "HTTPS_PORT=443",
     "ADMIN_BIND=127.0.0.1",
+    "EXPORTER_DB_PASSWORD=$(New-Hex 24)",
+    "GRAFANA_ADMIN_USER=admin",
+    "GRAFANA_ADMIN_PASSWORD=$grafanaPw",
     ""
 )
 $path = Join-Path (Get-Location) ".env"
@@ -40,4 +43,5 @@ $path = Join-Path (Get-Location) ".env"
 Write-Host "[setup] Da tao .env. Tai khoan dang nhap:"
 Write-Host "  Website  : admin / $adminPw"
 Write-Host "  pgAdmin  : admin@example.com / $pgadminPw"
+Write-Host "  Grafana  : admin / $grafanaPw"
 Write-Host "Tiep theo: docker compose up -d --build"

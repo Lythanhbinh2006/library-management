@@ -24,3 +24,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON session        TO library_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO library_app;
 EOSQL
 
+# Role chỉ-đọc cho postgres-exporter (pg_monitor: xem thống kê, không đọc được dữ liệu bảng)
+: "${EXPORTER_DB_PASSWORD:?EXPORTER_DB_PASSWORD chưa được đặt}"
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -v exp_pw="$EXPORTER_DB_PASSWORD" <<'EOSQL'
+CREATE ROLE exporter LOGIN PASSWORD :'exp_pw'
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION CONNECTION LIMIT 5;
+GRANT pg_monitor TO exporter;
+GRANT CONNECT ON DATABASE library TO exporter;
+EOSQL

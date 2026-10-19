@@ -10,11 +10,14 @@ const db = require('./db');
 const views = require('./views');
 const { log, accessLog } = require('./logger');
 const { ensureCsrf, verifyCsrf } = require('./middleware');
+const metrics = require('./metrics');
 
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // phía trước là Nginx (1 hop)
 
+app.use(metrics.middleware);
+app.get('/metrics', metrics.handler); // Nginx chặn đường dẫn này ra ngoài; Prometheus gọi trực tiếp trong mạng nội bộ
 
 // Healthcheck (Docker + Nginx dùng)
 app.get('/health', async (req, res) => {

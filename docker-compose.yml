@@ -39,6 +39,7 @@ services:
       POSTGRES_USER: library_admin
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Hãy đặt POSTGRES_PASSWORD trong file .env}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Hãy đặt APP_DB_PASSWORD trong file .env}
+      EXPORTER_DB_PASSWORD: ${EXPORTER_DB_PASSWORD:?Hãy đặt EXPORTER_DB_PASSWORD trong file .env}
       TZ: Asia/Ho_Chi_Minh
     command:
       - postgres
@@ -125,6 +126,7 @@ services:
     networks:
       - app_net
       - db_net
+      - monitor_net
     logging: *default-logging
 
   # ---------------------------------------------------------------------------
@@ -155,8 +157,113 @@ services:
     networks:
       - edge_net
       - app_net
+      - monitor_net
     logging: *default-logging
 
+  # ---------------------------------------------------------------------------
+  # Exporter: chuyển số liệu Nginx (stub_status) sang định dạng Prometheus
+  # ---------------------------------------------------------------------------
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.3.0
+    container_name: library-nginx-exporter
+    restart: unless-stopped
+    command:
+      - -nginx.scrape-uri=http://nginx:8081/stub_status
+    depends_on:
+      nginx:
+        condition: service_healthy
+    networks:
+      - monitor_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Exporter: số liệu PostgreSQL, kết nối bằng role chỉ-đọc 'exporter' (pg_monitor)
+  # ---------------------------------------------------------------------------
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: library-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: postgres:5432/library?sslmode=disable
+      DATA_SOURCE_USER: exporter
+      DATA_SOURCE_PASS: ${EXPORTER_DB_PASSWORD:?Hãy đặt EXPORTER_DB_PASSWORD trong file .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - db_net
+      - monitor_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # cAdvisor: số liệu CPU/RAM/mạng/đĩa của từng container
+  # ---------------------------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: library-cadvisor
+    restart: unless-stopped
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - monitor_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Prometheus: thu thập & lưu số liệu (UI: http://127.0.0.1:9090)
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: library-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${ADMIN_BIND:-127.0.0.1}:9090:9090"
+    networks:
+      - monitor_net
+      - admin_net
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Grafana: dashboard (UI: http://127.0.0.1:3000) - datasource & dashboard được provision sẵn
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: library-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Hãy đặt GRAFANA_ADMIN_PASSWORD trong file .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/library-web.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${ADMIN_BIND:-127.0.0.1}:3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - monitor_net
+      - admin_net
+    logging: *default-logging
 
 
 # -----------------------------------------------------------------------------
@@ -174,8 +281,12 @@ networks:
   db_net:
     internal: true
   admin_net:
+  monitor_net:
+    internal: true
 
 volumes:
   postgres_data:
   pgadmin_data:
   nginx_certs:
+  prometheus_data:
+  grafana_data:
