@@ -51,6 +51,7 @@ giám sát bằng **Prometheus + Grafana**, log tập trung bằng **Loki + Prom
 | Grafana | `grafana/grafana:11.3.0` | Dashboard (provision sẵn) |
 | cAdvisor | `gcr.io/cadvisor/cadvisor:v0.49.1` | Số liệu container |
 | nginx-exporter / postgres-exporter | `nginx/nginx-prometheus-exporter:1.3.0` / `prometheuscommunity/postgres-exporter:v0.15.0` | Số liệu web server / database |
+| Loki + Promtail | `grafana/loki:3.2.1` / `grafana/promtail:3.2.1` | Log tập trung, truy vấn bằng LogQL |
 
 ## 3. Yêu cầu
 
@@ -112,6 +113,9 @@ Các giao diện quản trị chỉ lắng nghe trên `127.0.0.1` (xem biến `A
 ├── monitoring/
 │   ├── prometheus/             # prometheus.yml, alerts.yml
 │   └── grafana/                # provisioning/ + dashboards/*.json
+├── logging/
+│   ├── loki/loki-config.yml
+│   └── promtail/promtail-config.yml
 ├── scripts/                    # setup.sh, setup.ps1, check.sh
 ```
 
@@ -139,12 +143,31 @@ Grafana tự nạp datasource và 3 dashboard trong thư mục **Library**:
 Quy tắc cảnh báo mẫu xem tại Prometheus -> Alerts (`monitoring/prometheus/alerts.yml`).
 Để thấy biểu đồ chuyển động: đăng nhập website, thêm sách, lập/nhận trả phiếu, hoặc chạy vòng lặp `curl -sk https://localhost/login`.
 
+## 9. Log tập trung: Loki + Promtail + LogQL (Yêu cầu 5)
+
+- Mọi container (nhãn project `library`) ghi log ra stdout. **Promtail** phát hiện container qua Docker API, gắn nhãn `service`, `container`, `project`
+  (riêng app có thêm `level`) rồi đẩy sang **Loki** (lưu 7 ngày).
+- Nginx và app đều ghi log **JSON**, nên dùng `| json` trong LogQL để lọc theo trường.
+- Truy vấn: Grafana -> **Explore** -> chọn datasource **Loki** (hoặc dashboard *Library - Logs (Loki)*).
+
+| # | Mục đích | LogQL |
+|---|---|---|
+| 1 | Toàn bộ log của app | `{service="app"}` |
+| 2 | Đăng nhập thất bại | `{service="app"} \| json \| event="login_failed"` |
+| 3 | Request lỗi tại Nginx | `{service="nginx"} \| json \| status >= 400` |
+| 4 | Số request theo mã HTTP mỗi phút | `sum by (status) (count_over_time({service="nginx"} \| json [1m]))` |
+| 5 | Truy vấn chậm / kết nối DB | `{service="postgres"} \|~ "duration:\|connection authorized"` |
+| 6 | Mọi dòng chứa lỗi | `{project="library"} \|~ "(?i)(error\|fatal\|panic)"` |
+
+Giải thích chi tiết và cách tạo dữ liệu mẫu cho từng truy vấn: [`docs/LOGQL.md`](docs/LOGQL.md).
+
 ## 11. Lịch sử commit
 
 | Commit | Nội dung |
 |---|---|
 | 1 | Ứng dụng + PostgreSQL + pgAdmin + Nginx reverse proxy (HTTPS, security headers) |
 | 2 | Prometheus + Grafana + exporter + dashboard |
+| 3 | Loki + Promtail + dashboard log + truy vấn LogQL |
 
 ## 12. Xử lý sự cố
 
@@ -164,3 +187,8 @@ Quy tắc cảnh báo mẫu xem tại Prometheus -> Alerts (`monitoring/promethe
 docker compose down        # dừng, giữ dữ liệu
 docker compose down -v     # dừng và XÓA toàn bộ dữ liệu (DB, Grafana, Loki...)
 ```
+
+## 14. Lưu ý về Promtail
+
+Đề bài yêu cầu Loki + **Promtail**, và image `grafana/promtail:3.2.1` vẫn chạy bình thường. Tuy nhiên Grafana đã công bố Promtail **hết vòng đời (EOL) từ 02/03/2026**;
+agent kế nhiệm là **Grafana Alloy**. Hệ thống thật nên chuyển sang Alloy (có công cụ `alloy convert --source-format=promtail`). Luồng log giữ nguyên: container -> agent -> Loki -> Grafana.

@@ -40,6 +40,9 @@ DOWN="$(curl -s http://127.0.0.1:9090/api/v1/targets | grep -o '"health":"down"'
 expect "Grafana health" "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health)" "200"
 expect "Datasource Prometheus" "$(curl -s -u "${GRAFANA_ADMIN_USER:-admin}:${GRAFANA_ADMIN_PASSWORD}" http://127.0.0.1:3000/api/datasources/uid/prometheus/health | grep -o '"status":"OK"' | head -1)" '"status":"OK"'
 
+echo "== Loki / Promtail =="
+expect "Datasource Loki" "$(curl -s -u "${GRAFANA_ADMIN_USER:-admin}:${GRAFANA_ADMIN_PASSWORD}" http://127.0.0.1:3000/api/datasources/uid/loki/health | grep -o '"status":"OK"' | head -1)" '"status":"OK"'
+
 echo
 [ "$FAILED" = "0" ] && echo "TẤT CẢ KIỂM TRA ĐẠT" || echo "CÓ KIỂM TRA KHÔNG ĐẠT - xem các dòng [FAIL]"
 exit "$FAILED"
