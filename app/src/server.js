@@ -60,6 +60,7 @@ app.use(ensureCsrf);
 app.use(verifyCsrf);
 
 app.use(require('./routes/auth'));
+app.use('/users', require('./routes/users'));
 app.use(require('./routes/dashboard'));
 app.use(require('./routes/books'));
 app.use(require('./routes/members'));

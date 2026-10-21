@@ -41,19 +41,19 @@ Chọn mọi dòng log của container `app`. Mỗi dòng là một JSON: `time`
 
 ### 3. Request lỗi tại Nginx
 ```logql
-{service="nginx"} | json | status >= 400
+{service="nginx"} | json | __error__="" | status >= 400
 ```
-So sánh số trên trường `status` (404, 405, 429...). Thêm `| line_format "{{.status}} {{.method}} {{.uri}} từ {{.remote_addr}}"` để rút gọn hiển thị.
+So sánh số trên trường JSON `status` (404, 405, 429...). Có thể thêm `| line_format "{{.status}} {{.method}} {{.uri}} từ {{.remote_addr}}"` để rút gọn hiển thị.
 
 ### 4. Số request theo mã HTTP mỗi phút (truy vấn số liệu - metric query)
 ```logql
-sum by (status) (count_over_time({service="nginx"} | json [1m]))
+sum by (status) (count_over_time({service="nginx"} | json | __error__="" [1m]))
 ```
 Đếm số dòng log trong cửa sổ 1 phút, gom theo `status`; hiển thị dạng biểu đồ (Explore: chọn *Graph*).
 
 ### 5. Tỷ lệ lỗi 5xx / 4xx
 ```logql
-sum(rate({service="nginx"} | json | status >= 500 [5m])) / sum(rate({service="nginx"} [5m]))
+sum(rate({service="nginx"} | json | __error__="" | status >= 500 [5m])) / sum(rate({service="nginx"}[5m]))
 ```
 
 ### 6. Top 5 đường dẫn được gọi nhiều nhất
@@ -74,7 +74,7 @@ topk(5, sum by (uri) (count_over_time({service="nginx"} | json [10m])))
 
 ### 9. Sự kiện nghiệp vụ (audit)
 ```logql
-{service="app"} | json | type="audit" | event=~"loan_.*|book_.*|member_.*" | line_format "{{.event}} bởi {{.by}}"
+{service="app"} | json | __error__="" | type="audit" | event=~"loan_.*|book_.*|member_.*" | line_format "{{.event}} bởi {{.by}}"
 ```
 
 ## Gợi ý đưa vào báo cáo

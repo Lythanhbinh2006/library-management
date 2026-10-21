@@ -77,10 +77,11 @@ ${head}
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Thư viện</a>
     <ul>
       ${NAV.map((n) => html`<li><a href="${n.href}" ${active === n.key ? raw('aria-current="page"') : ''}>${n.label}</a></li>`)}
+      ${user && user.role === 'admin' ? html`<li><a href="/users" ${active === 'users' ? raw('aria-current="page"') : ''}>Tài khoản</a></li>` : ''}
     </ul>
     <form class="who" method="post" action="/logout">
       ${csrfField(csrf)}
-      <span class="who-name">${user.fullName}</span>
+      <span class="who-name">${user.fullName} <small>${user.role === 'admin' ? 'Quản trị viên' : 'Thủ thư'}</small></span>
       <button class="btn btn-quiet" type="submit">Đăng xuất</button>
     </form>
   </nav>
@@ -167,7 +168,7 @@ ${noStock ? html`<p class="empty">Hiện không còn cuốn sách nào có thể
 }
 
 // ---------- Sách ----------
-function booksList({ books, q, page, pages, total, csrf }) {
+function booksList({ books, q, page, pages, total, csrf, user }) {
   return html`<header class="page-head"><h1>Sách</h1><a class="btn btn-primary" href="/books/new">Thêm sách</a></header>
 <form class="search" method="get" action="/books" role="search">
   <input type="search" name="q" value="${q}" placeholder="Tìm theo tên sách, tác giả hoặc ISBN" aria-label="Tìm sách" maxlength="100">
@@ -184,7 +185,7 @@ ${books.length === 0 ? html`<p class="empty">Không tìm thấy sách nào. Th�
     <td class="num ${b.available_copies === 0 ? 'is-late' : ''}">${b.available_copies} / ${b.total_copies}</td>
     <td class="actions">
       <a class="btn btn-small" href="/books/${b.id}/edit">Sửa</a>
-      <form method="post" action="/books/${b.id}/delete" data-confirm="Xóa sách này khỏi thư viện?">${csrfField(csrf)}<button class="btn btn-small btn-danger" type="submit">Xóa</button></form>
+      ${user.role === 'admin' ? html`<form method="post" action="/books/${b.id}/delete" data-confirm="Xóa sách này khỏi thư viện?">${csrfField(csrf)}<button class="btn btn-small btn-danger" type="submit">Xóa</button></form>` : ''}
     </td>
   </tr>`)}
   </tbody></table></div>`}
@@ -212,7 +213,7 @@ ${errorList(errors)}
 }
 
 // ---------- Độc giả ----------
-function membersList({ members, q, page, pages, total, csrf }) {
+function membersList({ members, q, page, pages, total, csrf, user }) {
   return html`<header class="page-head"><h1>Độc giả</h1><a class="btn btn-primary" href="/members/new">Thêm độc giả</a></header>
 <form class="search" method="get" action="/members" role="search">
   <input type="search" name="q" value="${q}" placeholder="Tìm theo họ tên, mã độc giả, email hoặc số điện thoại" aria-label="Tìm độc giả" maxlength="100">
@@ -230,7 +231,7 @@ ${members.length === 0 ? html`<p class="empty">Không tìm thấy độc giả n
     <td>${m.status === 'active' ? html`<span class="tag tag-ok">Hoạt động</span>` : html`<span class="tag tag-late">Tạm khóa</span>`}</td>
     <td class="actions">
       <a class="btn btn-small" href="/members/${m.id}/edit">Sửa</a>
-      <form method="post" action="/members/${m.id}/delete" data-confirm="Xóa độc giả này?">${csrfField(csrf)}<button class="btn btn-small btn-danger" type="submit">Xóa</button></form>
+      ${user.role === 'admin' ? html`<form method="post" action="/members/${m.id}/delete" data-confirm="Xóa độc giả này?">${csrfField(csrf)}<button class="btn btn-small btn-danger" type="submit">Xóa</button></form>` : ''}
     </td>
   </tr>`)}
   </tbody></table></div>`}
@@ -256,6 +257,23 @@ ${errorList(errors)}
 </form>`;
 }
 
+function usersList({ users, csrf }) {
+  return html`<header class="page-head"><h1>Tài khoản nhân viên</h1><a class="btn btn-primary" href="/users/new">Thêm tài khoản</a></header>
+<div class="table-wrap"><table class="data"><thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Tạo lúc</th><th></th></tr></thead><tbody>
+${users.map((u) => html`<tr><td class="mono">${u.username}</td><td>${u.full_name}</td><td>${u.role === 'admin' ? 'Quản trị viên' : 'Thủ thư'}</td><td>${u.created_at}</td><td><a class="btn btn-small" href="/users/${u.id}/edit">Sửa</a></td></tr>`)}
+</tbody></table></div>`;
+}
+
+function userForm({ title, action, values, errors, csrf, editing }) {
+  return html`<header class="page-head"><h1>${title}</h1></header>${errorList(errors)}<form class="form" method="post" action="${action}">
+  ${csrfField(csrf)}
+  ${field({ label: 'Tên đăng nhập', name: 'username', required: true, value: values.username, attr: editing ? { maxlength: 50, autocomplete: 'username', readonly: '' } : { maxlength: 50, autocomplete: 'username' } })}
+  ${field({ label: 'Họ tên', name: 'full_name', required: true, value: values.full_name, attr: { maxlength: 100 } })}
+  ${select({ label: 'Vai trò', name: 'role', value: values.role, options: [{ value: 'librarian', label: 'Thủ thư' }, { value: 'admin', label: 'Quản trị viên' }] })}
+  ${field({ label: editing ? 'Mật khẩu mới (để trống nếu không đổi)' : 'Mật khẩu', name: 'password', type: 'password', required: !editing, attr: { minlength: 12, maxlength: 200, autocomplete: 'new-password' } })}
+  <div class="form-actions"><button class="btn btn-primary" type="submit">Lưu tài khoản</button><a class="btn" href="/users">Hủy</a></div></form>`;
+}
+
 // ---------- Tổng quan ----------
 function dashboard({ stats, recent, overdue, csrf }) {
   return html`<header class="page-head"><h1>Tổng quan</h1><a class="btn btn-primary" href="/loans/new">Lập phiếu mượn</a></header>
@@ -278,5 +296,5 @@ function dashboard({ stats, recent, overdue, csrf }) {
 
 module.exports = {
   layout, errorBox, login, dashboard,
-  booksList, bookForm, membersList, memberForm, loansList, loanForm,
+  booksList, bookForm, membersList, memberForm, usersList, userForm, loansList, loanForm,
 };

@@ -29,6 +29,17 @@ function requireLogin(req, res, next) {
   return next();
 }
 
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.session.user) return res.redirect('/login');
+    if (!roles.includes(req.session.user.role)) {
+      audit('access_denied', { username: req.session.user.username, role: req.session.user.role, path: req.originalUrl }, 'warn');
+      return res.status(403).page('Không có quyền', views.errorBox(403, 'Tài khoản của bạn không có quyền thực hiện thao tác này.'));
+    }
+    return next();
+  };
+}
+
 function flash(req, type, msg) {
   req.session.flash = { type, msg };
 }
@@ -39,4 +50,4 @@ function intParam(v) {
   return /^\d+$/.test(String(v)) && Number.isInteger(n) && n > 0 ? n : null;
 }
 
-module.exports = { UserError, ensureCsrf, verifyCsrf, requireLogin, flash, intParam };
+module.exports = { UserError, ensureCsrf, verifyCsrf, requireLogin, requireRole, flash, intParam };

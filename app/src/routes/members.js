@@ -3,7 +3,7 @@ const express = require('express');
 const db = require('../db');
 const views = require('../views');
 const { audit } = require('../logger');
-const { requireLogin, flash, intParam } = require('../middleware');
+const { requireLogin, requireRole, flash, intParam } = require('../middleware');
 
 const router = express.Router();
 router.use(requireLogin);
@@ -55,7 +55,7 @@ router.get('/members', async (req, res, next) => {
        FROM members m ${where} ORDER BY m.member_code LIMIT ${PAGE_SIZE} OFFSET ${(Math.min(page, pages) - 1) * PAGE_SIZE}`,
       params,
     );
-    res.page('Độc giả', views.membersList({ members: rows, q, page: Math.min(page, pages), pages, total, csrf: req.session.csrf }), { active: 'members' });
+    res.page('Độc giả', views.membersList({ members: rows, q, page: Math.min(page, pages), pages, total, csrf: req.session.csrf, user: req.session.user }), { active: 'members' });
   } catch (err) { next(err); }
 });
 
@@ -116,7 +116,7 @@ router.post('/members/:id', async (req, res, next) => {
   }
 });
 
-router.post('/members/:id/delete', async (req, res, next) => {
+router.post('/members/:id/delete', requireRole('admin'), async (req, res, next) => {
   const id = intParam(req.params.id);
   if (!id) return next();
   try {

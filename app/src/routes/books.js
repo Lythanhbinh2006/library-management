@@ -3,7 +3,7 @@ const express = require('express');
 const db = require('../db');
 const views = require('../views');
 const { audit } = require('../logger');
-const { requireLogin, flash, intParam } = require('../middleware');
+const { requireLogin, requireRole, flash, intParam } = require('../middleware');
 
 const router = express.Router();
 router.use(requireLogin);
@@ -58,7 +58,7 @@ router.get('/books', async (req, res, next) => {
        ORDER BY title LIMIT ${PAGE_SIZE} OFFSET ${(Math.min(page, pages) - 1) * PAGE_SIZE}`,
       params,
     );
-    res.page('Sách', views.booksList({ books: rows, q, page: Math.min(page, pages), pages, total, csrf: req.session.csrf }), { active: 'books' });
+    res.page('Sách', views.booksList({ books: rows, q, page: Math.min(page, pages), pages, total, csrf: req.session.csrf, user: req.session.user }), { active: 'books' });
   } catch (err) { next(err); }
 });
 
@@ -123,7 +123,7 @@ router.post('/books/:id', async (req, res, next) => {
   }
 });
 
-router.post('/books/:id/delete', async (req, res, next) => {
+router.post('/books/:id/delete', requireRole('admin'), async (req, res, next) => {
   const id = intParam(req.params.id);
   if (!id) return next();
   try {

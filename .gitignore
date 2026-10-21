@@ -2,6 +2,8 @@
 .env
 *.key
 *.pem
+backups/
+secrets/
 node_modules/
 *.log
 .DS_Store

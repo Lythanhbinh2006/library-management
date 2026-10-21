@@ -137,7 +137,7 @@ Grafana tự nạp datasource và 3 dashboard trong thư mục **Library**:
 
 | Dashboard | Nội dung |
 |---|---|
-| Library - Containers (cAdvisor) | CPU, RAM, mạng, đĩa, uptime của từng container |
+| Library - Containers (cAdvisor) | CPU, RAM, mạng, đĩa, uptime của từng container; Docker Desktop Windows dùng metric host fallback khi không expose được nhãn container |
 | Library - Web (Nginx + App) | Request/s, kết nối, mã HTTP, độ trễ p50/p95/p99, số liệu nghiệp vụ (sách, độc giả, phiếu mượn) |
 | Library - PostgreSQL | Kết nối, transaction/s, cache hit ratio, khóa, dung lượng DB, số dòng theo bảng |
 
@@ -207,7 +207,16 @@ docker compose down        # dừng, giữ dữ liệu
 docker compose down -v     # dừng và XÓA toàn bộ dữ liệu (DB, Grafana, Loki...)
 ```
 
-## 14. Lưu ý về Promtail
+## 14. RBAC, migration và backup
+
+- Vai trò `admin` được tạo từ `ADMIN_USERNAME`/`ADMIN_PASSWORD`; quản trị viên có thêm mục **Tài khoản** để tạo, đổi vai trò và đổi mật khẩu nhân viên.
+- Vai trò `librarian` được thêm/sửa sách, độc giả và xử lý mượn/trả; thao tác xoá sách/độc giả và quản lý tài khoản bị giới hạn cho `admin`. Mọi lần bị từ chối đều được ghi audit log.
+- Sau khi khởi tạo database, chạy migration bằng `./scripts/migrate.sh` hoặc `powershell -ExecutionPolicy Bypass -File .\scripts\migrate.ps1`.
+- Backup: `./scripts/backup.sh` hoặc `./scripts/backup.ps1`; restore yêu cầu gõ `RESTORE` và dùng `restore.sh`/`restore.ps1`. Không lưu backup trong Git.
+- Production nên dùng các biến `DB_PASSWORD_FILE`, `SESSION_SECRET_FILE`, `ADMIN_PASSWORD_FILE` trỏ tới Docker secret/Vault mount; xem [`docs/SECRETS.md`](docs/SECRETS.md).
+- Grafana tự nạp các rule cảnh báo trong `monitoring/grafana/provisioning/alerting/`; kiểm tra LogQL tự động bằng `node scripts/test-logql.js` và kiểm thử ứng dụng bằng `npm --prefix app test`.
+
+## 15. Lưu ý về Promtail
 
 Đề bài yêu cầu Loki + **Promtail**, và image `grafana/promtail:3.2.1` vẫn chạy bình thường. Tuy nhiên Grafana đã công bố Promtail **hết vòng đời (EOL) từ 02/03/2026**;
 agent kế nhiệm là **Grafana Alloy**. Hệ thống thật nên chuyển sang Alloy (có công cụ `alloy convert --source-format=promtail`). Luồng log giữ nguyên: container -> agent -> Loki -> Grafana.

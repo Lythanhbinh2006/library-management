@@ -45,7 +45,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(count by (name) (container_memory_working_set_bytes{name=~\"library-.+\"}))",
+          "expr": "count(count by (name) (container_memory_working_set_bytes{}))",
           "instant": false
         }
       ],
@@ -104,7 +104,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"library-.+\"}[1m])) * 100",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{}[1m])) * 100",
           "instant": false
         }
       ],
@@ -160,7 +160,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(container_memory_working_set_bytes{name=~\"library-.+\"})",
+          "expr": "sum(container_memory_working_set_bytes{})",
           "instant": false
         }
       ],
@@ -215,7 +215,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_network_receive_bytes_total{name=~\"library-.+\"}[1m]))",
+          "expr": "sum(rate(container_network_receive_bytes_total{}[1m]))",
           "instant": false
         }
       ],
@@ -270,7 +270,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_network_transmit_bytes_total{name=~\"library-.+\"}[1m]))",
+          "expr": "sum(rate(container_network_transmit_bytes_total{}[1m]))",
           "instant": false
         }
       ],
@@ -338,7 +338,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\"library-.+\"}[1m])) * 100",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{}[1m])) * 100",
           "legendFormat": "{{name}}"
         }
       ],
@@ -395,7 +395,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (container_memory_working_set_bytes{name=~\"library-.+\"})",
+          "expr": "sum by (name) (container_memory_working_set_bytes{})",
           "legendFormat": "{{name}}"
         }
       ],
@@ -465,7 +465,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_network_receive_bytes_total{name=~\"library-.+\"}[1m]))",
+          "expr": "sum by (name) (rate(container_network_receive_bytes_total{}[1m]))",
           "legendFormat": "{{name}}"
         }
       ],
@@ -522,7 +522,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{name=~\"library-.+\"}[1m]))",
+          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{}[1m]))",
           "legendFormat": "{{name}}"
         }
       ],
@@ -579,7 +579,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_fs_reads_bytes_total{name=~\"library-.+\"}[1m]))",
+          "expr": "sum by (name) (rate(container_fs_reads_bytes_total{}[1m]))",
           "legendFormat": "{{name}}"
         }
       ],
@@ -636,7 +636,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_fs_writes_bytes_total{name=~\"library-.+\"}[1m]))",
+          "expr": "sum by (name) (rate(container_fs_writes_bytes_total{}[1m]))",
           "legendFormat": "{{name}}"
         }
       ],
@@ -706,7 +706,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "time() - container_start_time_seconds{name=~\"library-.+\"}",
+          "expr": "time() - container_start_time_seconds{}",
           "legendFormat": "{{name}}"
         }
       ],

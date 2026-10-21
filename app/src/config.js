@@ -1,7 +1,8 @@
 'use strict';
 
 function required(name) {
-  const v = process.env[name];
+  const file = process.env[`${name}_FILE`];
+  const v = file ? require('fs').readFileSync(file, 'utf8').trim() : process.env[name];
   if (!v) {
     process.stdout.write(JSON.stringify({ time: new Date().toISOString(), level: 'fatal', msg: `Thiếu biến môi trường bắt buộc: ${name}` }) + '\n');
     process.exit(1);
@@ -17,13 +18,13 @@ const config = {
     port: Number.parseInt(process.env.DB_PORT || '5432', 10),
     database: process.env.DB_NAME || 'library',
     user: process.env.DB_USER || 'library_app',
-    password: required('DB_PASSWORD'),
+    password: process.env.DB_PASSWORD || required('DB_PASSWORD'),
     max: 10,
   },
-  sessionSecret: required('SESSION_SECRET'),
+  sessionSecret: process.env.SESSION_SECRET || required('SESSION_SECRET'),
   admin: {
     username: process.env.ADMIN_USERNAME || 'admin',
-    password: required('ADMIN_PASSWORD'),
+    password: process.env.ADMIN_PASSWORD || required('ADMIN_PASSWORD'),
   },
   loan: {
     defaultDays: 14,
