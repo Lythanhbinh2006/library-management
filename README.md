@@ -4,7 +4,7 @@ Bài thực hành môn **Triển khai và Quản trị Hệ thống Phần mềm
 Ứng dụng web quản lý thư viện (sách, độc giả, mượn/trả) chạy trên **PostgreSQL + pgAdmin**, đặt sau **Nginx reverse proxy (HTTPS)**,
 giám sát bằng **Prometheus + Grafana**, log tập trung bằng **Loki + Promtail (LogQL)** và đã được **hardening**.
 
-> Sinh viên: `<Họ và tên>` - MSSV: `<MSSV>` - Lớp: `<Lớp>`
+> Sinh viên: `Lý Thanh Bình` - MSSV: `DTC245200725` - Lớp: `CNTT K23I`
 
 ## 1. Chức năng ứng dụng
 
@@ -62,8 +62,8 @@ giám sát bằng **Prometheus + Grafana**, log tập trung bằng **Loki + Prom
 ## 4. Chạy hệ thống
 
 ```bash
-git clone https://github.com/<tai-khoan-MSSV>/<ten-repo>.git
-cd <ten-repo>
+git clone https://github.com/Lythanhbinh2006/library-management.git
+cd <library-management>
 
 # Bước 1 - tạo .env với mật khẩu ngẫu nhiên mạnh (in ra tài khoản đăng nhập)
 ./scripts/setup.sh                                  # Linux / macOS / WSL / Git Bash
